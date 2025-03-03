@@ -1,30 +1,44 @@
 import requests
-import os 
-from dotenv import load_dotenv
+from bs4 import BeautifulSoup 
+import streamlit as st
 
-# Carregar variáveis do arquivo .env
-load_dotenv()
+def get_player_stats(player_name, year):
+    url = f'https://www.espn.com/soccer/player/stats/_/id/{player_name.lower()}'
+    response = requests.get(url)
 
-# Carregar a chave da API do arquivo .env
-API_KEY = os.getenv("API_KEY")  # A chave agora vem do arquivo .env
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
 
-BASE_URL = "https://api.api-futebol.com.br/v1"
+        try:
+            stats_table = soup.find('div', {'class': 'PlayerStats__Container'})
+            stats = []
 
-# Exemplo de ID do jogador
-player_id = 10  
-url = f"{BASE_URL}/campeonatos"  # Verifique o endpoint correto
+            for stat in stats_table.find_all('div', {'class': 'Stat'}):
+                label = stat.find('div', {'class': 'Stat__Label'}).text.strip()
+                value = stat.find('div', {'class': 'Stat__Value'}).text.strip()
+                stats.append((label, value))
 
-# Configurar os headers para a requisição
-headers = {
-    "Authorization": f"Bearer {API_KEY}"  # Adiciona o espaço correto após 'Bearer'
-}
+            return stats
+        except AttributeError:
+            return "Estatísticas não encontradas para este jogador."   
+        else:
+            return f"Erro ao acessar a página do jogador: {response.status_code}."
 
-# Fazer a requisição
-response = requests.get(url, headers=headers)
+st.title('Estatísticas de Jogadores de Futebol')
 
-# Verificar a resposta
-if response.status_code == 200:
-    data = response.json()  # Dados retornados da API
-    print(data)
-else:
-    print(f"Erro: {response.status_code} - {response.text}")
+year = st.selectbox("Escolha o ano:", [2025, 2024, 2023, 2022])
+player_name = st.text_input("Digite o nome do jogador:")
+
+if st.button("Buscar"):
+    if player_name:
+        stats = get_player_stats(player_name, year)
+        if isinstance(stats, list):
+            st.write(f"Estatísticas de {player_name} em {year}:")
+            for label, value in stats:
+                st.write(f"{label}: {value}")
+        else:
+            st.write(stats)  # Caso não encontre as estatísticas
+    else:
+        st.write("Por favor, insira o nome do jogador.")
+
+
